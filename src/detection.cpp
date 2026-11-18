@@ -137,3 +137,4 @@ vector<Point2f> detectCorners(const Mat& img, bool textured)
 
     return corners;
 }
+

@@ -48,3 +48,4 @@ bool lineIntersect(Point2f p1, Point2f p2,
     out.y = p1.y + t*(p2.y-p1.y);
     return true;
 }
+

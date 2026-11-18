@@ -104,3 +104,4 @@ vector<Point2f> interactiveAdjust(const Mat& img, const vector<Point2f>& initial
     destroyWindow(winName);
     return g.corners;
 }
+

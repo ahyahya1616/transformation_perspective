@@ -12,3 +12,4 @@ float dist(cv::Point2f a, cv::Point2f b);
 bool lineIntersect(cv::Point2f p1, cv::Point2f p2,
                    cv::Point2f p3, cv::Point2f p4,
                    cv::Point2f& out);
+

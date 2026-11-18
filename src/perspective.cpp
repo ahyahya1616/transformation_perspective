@@ -24,3 +24,4 @@ Mat applyPerspective(const Mat& src, const vector<Point2f>& corners)
     warpPerspective(src, warped, M, Size((int)W, (int)H));
     return warped;
 }
+
