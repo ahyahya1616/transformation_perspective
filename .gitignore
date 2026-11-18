@@ -1,5 +1,26 @@
+# Dossier de build CMake
 build/
-*.jpg
-*.png
-*.jpeg
-!samples/
+
+# Binaire compilé
+transform_perspective
+
+# Fichiers objets et bibliothèques
+*.o
+*.a
+*.so
+
+# Images résultats (générées par le programme)
+*_rectified.jpg
+*_rectified.png
+
+# Fichiers IDE / éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+

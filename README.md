@@ -72,3 +72,4 @@ Le résultat est sauvegardé automatiquement sous `<nom_original>_rectified.jpg`
 - CMake ≥ 3.10
 - OpenCV ≥ 4.x (`opencv2/opencv.hpp`)
 - Compilateur C++17
+
