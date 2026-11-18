@@ -12,3 +12,4 @@ void drawCorners(cv::Mat& img, const std::vector<cv::Point2f>& pts, bool labels 
  */
 std::vector<cv::Point2f> interactiveAdjust(const cv::Mat& img,
                                            const std::vector<cv::Point2f>& initial);
+

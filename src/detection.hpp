@@ -27,3 +27,4 @@ std::vector<cv::Point2f> detectTexturedBackground(const cv::Mat& img);
  * avec fallback sur l'autre méthode et sur les coins de l'image.
  */
 std::vector<cv::Point2f> detectCorners(const cv::Mat& img, bool textured);
+
