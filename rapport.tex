@@ -1,0 +1,356 @@
+\documentclass[a4paper,11pt]{article}
+
+% --- Packages fondamentaux ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% --- Configuration des couleurs ---
+\definecolor{primary}{RGB}{20, 50, 110}     % Bleu institutionnel
+\definecolor{secondary}{RGB}{40, 120, 180}  % Bleu secondaire
+\definecolor{darkgray}{RGB}{50, 50, 50}
+\definecolor{codebg}{RGB}{245, 247, 250}
+\definecolor{codeframe}{RGB}{210, 215, 225}
+\definecolor{codegreen}{RGB}{0, 130, 50}
+\definecolor{codeblue}{RGB}{20, 70, 180}
+
+% --- Configuration des hyperliens ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    filecolor=primary,
+    urlcolor=codeblue,
+    citecolor=primary,
+    pdftitle={Rapport Devoir 2 - Transformation de Perspective - Yahya AHMANE},
+    pdfauthor={Yahya AHMANE}
+}
+
+% --- Configuration des listings de code ---
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\footnotesize\color{darkgray},
+    keywordstyle=\bfseries\color{codeblue},
+    commentstyle=\itshape\color{codegreen},
+    stringstyle=\color{red!70!black},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=8pt,
+    frame=single,
+    rulecolor=\color{codeframe},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=4,
+    showstringspaces=false
+}
+
+% --- Configuration En-têtes et Pieds de page ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{gray}FST Tanger --- LSI | Vision Artificielle}
+\fancyhead[R]{\small\color{gray}Devoir 2 : Transformation de Perspective}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Mise en forme des titres ---
+\titleformat{\section}{\color{primary}\large\bfseries}{\thesection.}{0.8em}{}[\titlerule]
+\titleformat{\subsection}{\color{secondary}\normalsize\bfseries}{\thesubsection.}{0.6em}{}
+
+% ─────────────────────────────────────────────────────────────
+%                       DEBUT DU DOCUMENT
+% ─────────────────────────────────────────────────────────────
+\begin{document}
+
+% =============================================================
+%                       PAGE DE GARDE
+% =============================================================
+\begin{titlepage}
+    \centering
+    \vspace*{0.5cm}
+    
+    {\scshape\Large Université Abdelmalek Essaâdi \par}
+    {\scshape\large Faculté des Sciences et Techniques de Tanger \par}
+    {\scshape\footnotesize Département de Génie Informatique \par}
+    
+    \vspace{0.8cm}
+    \hrule height 1.5pt
+    \vspace{0.8cm}
+    
+    {\large\bfseries Master / Cycle d'Ingénieur en Logiciels et Systèmes Intelligents (LSI) \par}
+    \vspace{0.3cm}
+    {\large\color{secondary}\textbf{Module : Vision Artificielle \& Traitement d'Images} \par}
+    
+    \vspace{2.0cm}
+    
+    \begin{tcolorbox}[colback=primary!5!white,colframe=primary,arc=4mm,boxrule=1.2pt]
+        \centering
+        \vspace{0.3cm}
+        {\LARGE\bfseries\color{primary} DEVOIR 2 : ALIGNEMENT ET TRANSFORMATION DE PERSPECTIVE D'UN DOCUMENT \par}
+        \vspace{0.4cm}
+        {\large\bfseries Orthorectification Automatique et Interactive avec OpenCV en C++ \par}
+        \vspace{0.3cm}
+    \end{tcolorbox}
+    
+    \vspace{2.5cm}
+    
+    \begin{minipage}[t]{0.48\textwidth}
+        \textbf{\large Réalisé par :}\\[0.2cm]
+        {\Large\textbf{Yahya AHMANE}}\\[0.1cm]
+        Élève Ingénieur en LSI\\
+        \href{mailto:ahmaneyahya10@gmail.com}{\texttt{ahmaneyahya10@gmail.com}}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\textwidth}
+        \begin{flushright}
+            \textbf{\large Encadré par :}\\[0.2cm]
+            {\Large\textbf{Pr. M'hamed AIT KBIR}}\\[0.1cm]
+            Professeur d'Enseignement Supérieur\\
+            FST de Tanger
+        \end{flushright}
+    \end{minipage}
+    
+    \vfill
+    
+    \begin{tcolorbox}[colback=gray!10!white,colframe=gray!40!white,arc=2mm,boxrule=0.5pt,center]
+        \centering\footnotesize
+        \textbf{Dépôt GitHub du Projet :} \href{https://github.com/ahyahya1616/transformation_perspective}{\texttt{https://github.com/ahyahya1616/transformation_perspective}}
+    \end{tcolorbox}
+    
+    \vspace{0.5cm}
+    {\small Année Universitaire 2024 -- 2025 \par}
+\end{titlepage}
+
+% =============================================================
+%                       TABLE DES MATIERES
+% =============================================================
+\tableofcontents
+\vspace{0.8cm}
+\hrule
+\vspace{0.8cm}
+
+% =============================================================
+% 1. INTRODUCTION & CONTEXTE
+% =============================================================
+\section{Introduction et Contexte du Travail}
+
+Lors de la capture photographique d'un document (feuille imprimée, reçu de caisse, contrat, etc.) à l'aide d'un capteur optique mobile, la scène est soumise à une projection centrale perspective. À moins que l'axe optique de l'appareil ne soit rigoureusement orthogonal au plan de la feuille, le document subit des déformations géométriques projectives :
+\begin{itemize}
+    \item Les lignes initialement parallèles convergent vers des points de fuite.
+    \item Les angles droits ($90^\circ$) sont altérés en angles aigus ou obtus.
+    \item Le rapport de proportionnalité des longueurs n'est plus conservé.
+\end{itemize}
+
+L'objectif de ce travail est de concevoir et développer une application complète en **C++** s'appuyant sur la bibliothèque **OpenCV** permettant de réaliser une **orthorectification** (vue de dessus rigoureusement plane) de documents photographiés. Conformément au cahier des charges, le système intègre :
+\begin{enumerate}
+    \item Une **détection automatique personnalisée** des 4 coins délimitant le quadrilatère du document.
+    \item Un **affichage graphique** du résultat de cette détection.
+    \item Une phase d'**ajustement interactif** par manipulation souris pour corriger les imprécisions éventuelles.
+    \item L'application mathématique de la **transformation projective (homographie)** pour restituer le document redressé.
+    \item La prise en charge robuste de deux typologies d'arrière-plans : **fonds simples** (uniformes et contrastés) et **fonds texturés** (complexes, bruités ou à faible contraste).
+\end{enumerate}
+
+Le code source intégral est disponible sur le dépôt public GitHub :\\
+\url{https://github.com/ahyahya1616/transformation_perspective}.
+
+% =============================================================
+% 2. ARCHITECTURE MODULAIRE DU SYSTEME
+% =============================================================
+\section{Architecture Logicielle et Modularité du Projet}
+
+Afin de respecter les principes d'ingénierie logicielle et de garantir la lisibilité, la maintenabilité et l'extensibilité du code, l'application a été entièrement découpée en modules indépendants réunis dans le répertoire \texttt{src/} :
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}llp{8.5cm}@{}}
+\toprule
+\textbf{Fichier Source} & \textbf{En-tête} & \textbf{Responsabilité Logicielle} \\ \midrule
+\texttt{main.cpp} & --- & Point d'entrée, orchestration séquentielle des 4 étapes du pipeline. \\
+\texttt{detection.cpp} & \texttt{detection.hpp} & Algorithmes de segmentation et d'extraction automatique des 4 coins (Otsu, Canny, Hough). \\
+\texttt{interactive.cpp} & \texttt{interactive.hpp} & Interface Homme-Machine : rendu graphique, gestionnaire d'événements souris et zone de débordement (\textit{padding}). \\
+\texttt{perspective.cpp} & \texttt{perspective.hpp} & Calcul de l'homographie et application de \texttt{warpPerspective}. \\
+\texttt{utils.cpp} & \texttt{utils.hpp} & Primitives géométriques : tri spatial des sommets, calculs de distances euclidiennes et intersections de droites. \\
+\bottomrule
+\end{tabular}
+\caption{Organisation modulaire de la solution logicielle.}
+\end{table}
+
+\begin{figure}[h!]
+    \centering
+    \fbox{\small\texttt{Image source} $\longrightarrow$ \texttt{Classification Fond} $\longrightarrow$ \texttt{Détection Coins} $\longrightarrow$ \texttt{IHM Interactive} $\longrightarrow$ \texttt{warpPerspective} $\longrightarrow$ \texttt{Sortie}}
+    \caption{Pipeline séquentiel de traitement d'image.}
+\end{figure}
+
+% =============================================================
+% 3. FOND SIMPLE : CONTOURS ET APPROXIMATION POLYGONALE
+% =============================================================
+\section{Méthode 1 : Prise en charge des Fonds Simples}
+
+\subsection{Justification Théorique du Choix Algorithmique}
+Un fond simple est caractérisé par une surface homogène et contrastée par rapport au document (ex. un reçu blanc sur un bureau sombre). Dans cette configuration :
+\begin{itemize}
+    \item L'histogramme global des intensités de gris présente une distribution **bimodale** nette (deux pics distincts : le fond et la page).
+    \item Le contour du document correspond à une discontinuité fermée et continue d'amplitude élevée.
+\end{itemize}
+Dès lors, l'approche optimale repose sur la **segmentation par seuillage global d'Otsu** combinée à l'**approximation polygonale de Ramer-Douglas-Peucker**. Cette méthode est déterministe, instantanée en temps de calcul et insensible aux détails textuels internes après fermeture morphologique.
+
+\subsection{Déroulement Détaillé de l'Algorithme}
+
+\begin{enumerate}
+    \item \textbf{Normalisation \& Prétraitement :} L'image d'entrée $I$ est convertie en niveaux de gris $I_{gray} = \text{cvtColor}(I, \text{COLOR\_BGR2GRAY})$. Un rehaussement adaptatif de contraste local par CLAHE (\textit{Contrast Limited Adaptive Histogram Equalization}) est appliqué pour compenser un éclairage inhomogène éventuel.
+    
+    \item \textbf{Filtrage Gaussien :} Un filtre passe-bas gaussien $G_\sigma$ de noyau $5 \times 5$ atténue le bruit haute fréquence du capteur :
+    \begin{equation}
+        I_{blur}(x,y) = I_{gray}(x,y) * G_\sigma(x,y)
+    \end{equation}
+
+    \item \textbf{Binarisation Optimale d'Otsu :} L'algorithme calcule le seuil $T^*$ maximisant la variance inter-classes $\sigma_B^2(T)$ :
+    \begin{equation}
+        T^* = \arg\max_T \left[ \omega_0(T)\omega_1(T) (\mu_0(T) - \mu_1(T))^2 \right]
+    \end{equation}
+    Ce qui produit une image binaire $B(x,y) \in \{0, 255\}$ isolant la feuille en blanc pur sur fond noir.
+
+    \item \textbf{Fermeture Morphologique :} Le texte imprimé sur la feuille forme des cavités noires dans la composante connexe blanche. Une opération de fermeture morphologique avec un élément structurant rectangulaire $K_{7\times7}$ bouche ces trous :
+    \begin{equation}
+        B_{closed} = (B \oplus K) \ominus K
+    \end{equation}
+
+    \item \textbf{Extraction et Approximation Polygonale :} Les contours externes sont extraits par l'algorithme topologique de Suzuki (\texttt{findContours}). Le contour présentant l'aire maximale $\mathcal{C}_{max}$ est soumis à l'algorithme de Douglas-Peucker via \texttt{approxPolyDP} :
+    \begin{equation}
+        \text{Polygone } \mathcal{P} = \text{approxPolyDP}(\mathcal{C}_{max}, \epsilon = 0.02 \times \text{Périmètre}(\mathcal{C}_{max}), \text{fermé = true})
+    \end{equation}
+    Lorsque $\text{Card}(\mathcal{P}) = 4$ et que $\mathcal{P}$ est convexe, les 4 sommets constituent directement les coins du document.
+\end{enumerate}
+
+% =============================================================
+% 4. FOND TEXTURE : FILTRAGE BILATERAL & LIGNES DE HOUGH
+% =============================================================
+\section{Méthode 2 : Prise en charge des Fonds Texturés}
+
+\subsection{Justification Théorique du Choix Algorithmique}
+Sur un fond texturé (veines de bois prononcées, tissu plissé, ombres portées, nappe à motifs), la méthode par seuillage d'Otsu échoue systématiquement car les pixels de texture de l'arrière-plan possèdent des niveaux de gris similaires à ceux du document, créant des ruptures et des ponts parasites dans le masque binaire.
+
+La stratégie mise en œuvre s'affranchit de l'intensité surfacique pour exploiter un **invariant géométrique structurel** : **la rectilinéarité des 4 bords de la page**. L'association du **filtre bilatéral**, du filtre différentiel de **Canny** et de la **Transformée de Hough Probabiliste (PPHT)** permet d'extraire les arêtes rectilignes même en présence d'un rapport signal/bruit défavorable.
+
+\subsection{Déroulement Détaillé de l'Algorithme}
+
+\begin{enumerate}
+    \item \textbf{Filtrage Bilatéral Préservant les Arêtes :} Contrairement au flou gaussien standard, le filtre bilatéral pondère les pixels à la fois par leur proximité spatiale $\sigma_s$ et leur similarité radiométrique $\sigma_r$ :
+    \begin{equation}
+        I_{bilat}(p) = \frac{1}{W_p} \sum_{q \in \Omega} I(q) \cdot \exp\left(-\frac{\|p-q\|^2}{2\sigma_s^2}\right) \cdot \exp\left(-\frac{|I(p)-I(q)|^2}{2\sigma_r^2}\right)
+    \end{equation}
+    Ce filtre lisse efficacement les micro-variations de texture du fond tout en préservant le front d'onde raide des bordures du document.
+
+    \item \textbf{Détection Multi-seuils de Canny :} L'opérateur de Canny extrait les lignes de contour fines ($1$ pixel) par calcul de gradient et suppression des non-maxima locaux, avec un seuillage par hystérésis ($T_{low} = 20, T_{high} = 80$).
+
+    \item \textbf{Transformée de Hough Probabiliste (\texttt{HoughLinesP}) :} Les segments de droites sont extraits dans l'espace accumulateur $(\rho, \theta)$. Seuls les segments excédant une longueur minimale critique $L_{min}$ sont retenus pour filtrer les artefacts résiduels du fond :
+    \begin{equation}
+        \rho = x \cos \theta + y \sin \theta
+    \end{equation}
+
+    \item \textbf{Partitionnement et Fusion des Arêtes Directrices :} Les segments détectés sont partitionnés en deux familles selon leur inclinaison angulaire $\alpha = |\arctan(dy/dx)|$ :
+    \begin{itemize}
+        \item Famille quasi-horizontale : $\alpha \le 25^\circ$ (bords supérieur et inférieur).
+        \item Famille quasi-verticale : $\alpha \ge 65^\circ$ (bords gauche et droit).
+    \end{itemize}
+    Les segments colinéaires et adjacents sont fusionnés en une droite maîtresse par bord.
+
+    \item \textbf{Reconstruction des 4 Coins par Intersections Géométriques :} Soient deux droites paramétrées par deux points $(P_1, P_2)$ et $(P_3, P_4)$. Le point d'intersection $(x_I, y_I)$ est déterminé par déterminant vectoriel :
+    \begin{equation}
+        x_I = \frac{(x_1 y_2 - y_1 x_2)(x_3 - x_4) - (x_1 - x_2)(x_3 y_4 - y_3 x_4)}{(x_1 - x_2)(y_3 - y_4) - (y_1 - y_2)(x_3 - x_4)}
+    \end{equation}
+    L'intersection des 4 droites directionnelles calcule rigoureusement les 4 sommets $TL, TR, BR, BL$, y compris lorsqu'un coin réel est physiquement tronqué ou masqué par un accessoire (ex. trombone).
+\end{enumerate}
+
+% =============================================================
+% 5. AJUSTEMENT INTERACTIF
+% =============================================================
+\section{Phase d'Ajustement Interactif (IHM)}
+
+Conformément à la spécification, le système intègre une boucle événementielle interactive permettant à l'utilisateur d'inspecter et d'ajuster manuellement la position des 4 sommets :
+
+\begin{itemize}
+    \item \textbf{Gestion des Événements Souris :} La fonction \texttt{cv::setMouseCallback} intercepte les événements \texttt{EVENT\_LBUTTONDOWN}, \texttt{EVENT\_MOUSEMOVE} et \texttt{EVENT\_LBUTTONUP}.
+    \item \textbf{Zone de Débordement (\textit{Padding}) :} Lorsqu'un document est cadré au ras de l'image, ses coins théoriques peuvent se situer légèrement à l'extérieur du champ du capteur. Une bordure neutre de $120$ pixels est automatiquement adjointe autour de l'image (\texttt{copyMakeBorder}), permettant à l'opérateur de positionner des points hors-champ sans blocage.
+    \item \textbf{Contrôles Clavier :} La touche \texttt{[ENTRÉE]} valide les sommets et déclenche l'orthorectification ; la touche \texttt{[R]} réinitialise la position des points sur la détection automatique initiale ; la touche \texttt{[Q]} permet de quitter.
+\end{itemize}
+
+% =============================================================
+% 6. TRANSFORMATION DE PERSPECTIVE
+% =============================================================
+\section{Transformation de Perspective et Orthorectification}
+
+\subsection{Formulation Mathématique de l'Homographie}
+La transformation liant les coordonnées d'un point dans le plan projectif de la photo $p = (x, y, 1)^T$ aux coordonnées dans le plan redressé $p' = (x', y', 1)^T$ est une projection projective 2D (homographie) régie par une matrice inversible $H \in \mathbb{R}^{3 \times 3}$ définie à un facteur d'échelle près :
+\begin{equation}
+    \begin{pmatrix} x' \\ y' \\ 1 \end{pmatrix} \sim H \begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = \begin{pmatrix} h_{11} & h_{12} & h_{13} \\ h_{21} & h_{22} & h_{23} \\ h_{31} & h_{32} & h_{33} \end{pmatrix} \begin{pmatrix} x \\ y \\ 1 \end{pmatrix}
+\end{equation}
+
+Puisque la matrice $H$ possède 8 degrés de liberté indépendants (avec $h_{33} = 1$), la mise en correspondance de 4 paires de points non colinéaires fournit un système linéaire à 8 équations résolu de manière exacte par la fonction \texttt{cv::getPerspectiveTransform}.
+
+\subsection{Détermination des Dimensions Cibles et Rééchantillonnage}
+Les dimensions de l'image cible rectangulaire $(W_{out}, H_{out})$ sont calculées d'après la norme euclidienne maximale des segments opposés :
+\begin{equation}
+    W_{out} = \max\left( \|TR - TL\|_2, \, \|BR - BL\|_2 \right), \quad
+    H_{out} = \max\left( \|BL - TL\|_2, \, \|BR - TR\|_2 \right)
+\end{equation}
+L'application de la fonction \texttt{cv::warpPerspective} réalise le rééchantillonnage bilinéaire inverse de l'image source vers le canevas de sortie, produisant un document plan sans anamorphose.
+
+% =============================================================
+% 7. RESULTATS EXPERIMENTAUX
+% =============================================================
+\section{Résultats Expérimentaux et Validation}
+
+Les expérimentations ont été menées sur les photographies fournies ainsi que sur des cas de test complémentaires :
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Image de Test} & \textbf{Typologie du Fond} & \textbf{Méthode Recommandée} & \textbf{Statut Détection Auto} \\ \midrule
+\texttt{receipt.jpg} & Fond sombre uni & Fond Simple (Otsu) & \textbf{Succès absolu} ($4/4$ coins) \\
+\texttt{cell\_pic.jpg} & Table bois contrastée & Fond Simple (Otsu/Canny) & \textbf{Succès absolu} ($4/4$ coins) \\
+\texttt{desk.JPG} & Bureau en bois clair & Fond Simple (Canny) & \textbf{Succès absolu} ($4/4$ coins) \\
+\texttt{test\_texture\_2.jpg} & Tissu en soie plissée beige & Fond Texturé (Hough/Intersections) & \textbf{Succès absolu} ($4/4$ coins obliques) \\
+\bottomrule
+\end{tabular}
+\caption{Synthèse des résultats de détection automatique selon le type d'image.}
+\end{table}
+
+\begin{itemize}
+    \item \textbf{Robustesse à l'angle :} Sur \texttt{test\_texture\_2.jpg}, le document présente une inclinaison d'environ $15^\circ$ et un trombone métallique en bordure. La méthode par lignes de Hough extrait fidèlement l'orientation sans être leurrée par les plis obliques de la soie.
+    \item \textbf{Précision de cadrage :} Sur \texttt{cell\_pic.jpg}, la feuille couvre presque intégralement la largeur du champ ($x \in [11, 505]$). L'algorithme isole l'intégralité du document sans confusion avec le cadre du capteur.
+\end{itemize}
+
+% =============================================================
+% 8. CONCLUSION
+% =============================================================
+\section{Conclusion}
+
+Ce devoir a permis de concevoir une chaîne de traitement d'images complète et robuste répondant rigoureusement aux exigences académiques :
+\begin{itemize}
+    \item La combinaison duale **Otsu/Contours** (fond simple) et **Bilatéral/Canny/Hough** (fond texturé) apporte une solution ciblée et justifiée pour chaque classe de problème.
+    \item L'adjonction de l'interface d'ajustement interactif offre une ergonomie professionnelle et résout les cas pathologiques d'occlusion partielle.
+    \item L'implémentation modulaire en C++17 garantit une exécution temps-réel avec une complexité algorithmique maîtrisée.
+\end{itemize}
+
+\vspace{0.8cm}
+\begin{center}
+    \rule{0.5\textwidth}{0.4pt}\\[0.2cm]
+    {\footnotesize Code source complet disponible sur : \href{https://github.com/ahyahya1616/transformation_perspective}{\texttt{github.com/ahyahya1616/transformation_perspective}}}
+\end{center}
+
+\end{document}
