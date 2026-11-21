@@ -34,7 +34,6 @@ bool isTexturedBackground(const Mat& img)
 
 // ─────────────────────────────────────────────────────────────
 //  Score d'un quadrilatère
-//  Rejette uniquement le cadre exact de la caméra
 // ─────────────────────────────────────────────────────────────
 static bool isCameraFrame(const vector<Point>& quad, int w, int h)
 {
@@ -44,7 +43,7 @@ static bool isCameraFrame(const vector<Point>& quad, int w, int h)
             touches++;
         }
     }
-    return touches >= 3; // 3 ou 4 coins posés sur les coins exacts de l'image
+    return touches >= 3;
 }
 
 static double scoreQuad(const vector<Point>& quad, const Mat& img)
@@ -55,10 +54,7 @@ static double scoreQuad(const vector<Point>& quad, const Mat& img)
     double imgArea = (double)img.rows * img.cols;
     double areaRatio = area / imgArea;
 
-    // Un document réel ne prend pas < 5% ni > 95% de l'image
     if (areaRatio < 0.05 || areaRatio > 0.95) return 0;
-
-    // Rejeter si c'est le cadre entier de la caméra
     if (isCameraFrame(quad, img.cols, img.rows)) return 0;
 
     double angleScore = 0;
@@ -116,14 +112,12 @@ vector<Point2f> detectSimpleBackground(const Mat& img)
     Mat blur, thresh, edges;
     GaussianBlur(gray, blur, Size(5, 5), 0);
 
-    // Essai A : Binarisation globale Otsu
     threshold(blur, thresh, 0, 255, THRESH_BINARY + THRESH_OTSU);
     Mat k7 = getStructuringElement(MORPH_RECT, Size(7, 7));
     morphologyEx(thresh, thresh, MORPH_CLOSE, k7);
     auto resOtsu = bestQuadFromBinary(thresh, img);
     if (!resOtsu.empty()) return resOtsu;
 
-    // Essai B : Canny standard
     Mat sorted; blur.reshape(1,1).copyTo(sorted);
     cv::sort(sorted, sorted, SORT_EVERY_ROW);
     double med = sorted.at<uchar>(0, sorted.cols/2);
@@ -140,94 +134,73 @@ vector<Point2f> detectSimpleBackground(const Mat& img)
 // ─────────────────────────────────────────────────────────────
 vector<Point2f> detectTexturedBackground(const Mat& img)
 {
-    Mat gray = preprocess(img);
-    Mat blur, thresh;
+    Mat gray, blur;
+    cvtColor(img, gray, COLOR_BGR2GRAY);
+    Ptr<CLAHE> clahe = createCLAHE(2.0, Size(8, 8));
+    clahe->apply(gray, gray);
+    bilateralFilter(gray, blur, 11, 90, 90);
 
-    // Essai A : Filtre bilatéral + seuillage adaptatif local
-    bilateralFilter(gray, blur, 7, 50, 50);
-    for (int bs : {25, 45, 65}) {
-        adaptiveThreshold(blur, thresh, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, bs, 6);
-        Mat k5 = getStructuringElement(MORPH_RECT, Size(5, 5));
-        morphologyEx(thresh, thresh, MORPH_CLOSE, k5);
-        auto result = bestQuadFromBinary(thresh, img);
-        if (result.size() == 4) return result;
-    }
-
-    // Essai B : Lignes de Hough pour reconstituer le document
     Mat edges;
-    Canny(blur, edges, 15, 50);
+    Canny(blur, edges, 20, 80);
+    Mat k5 = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(edges, edges, MORPH_CLOSE, k5);
 
-    vector<Vec4i> lines;
-    HoughLinesP(edges, lines, 1, CV_PI / 180, 35, 70, 25);
+    int minDim = min(img.cols, img.rows);
+    struct HP { int vote, len, gap; };
+    for (auto& p : vector<HP>{{80,minDim/4,20},{60,minDim/6,30},{40,minDim/8,40},{30,minDim/10,50}}) {
+        vector<Vec4i> lines;
+        HoughLinesP(edges, lines, 1, CV_PI/180, p.vote, p.len, p.gap);
+        if (lines.size() < 4) continue;
 
-    int margin = 20;
-    vector<Vec4i> horiz, vert;
-    for (auto& l : lines) {
-        if ((l[0] < margin && l[2] < margin) || (l[0] > img.cols - margin && l[2] > img.cols - margin) ||
-            (l[1] < margin && l[3] < margin) || (l[1] > img.rows - margin && l[3] > img.rows - margin))
-            continue;
+        vector<Vec4i> horiz, vert;
+        for (auto& l : lines) {
+            double a = atan2(abs(l[3]-l[1]), abs(l[2]-l[0])) * 180.0 / CV_PI;
+            if (a < 25)      horiz.push_back(l);
+            else if (a > 65) vert.push_back(l);
+        }
+        if (horiz.size() < 2 || vert.size() < 2) continue;
 
-        double a = atan2(abs(l[3]-l[1]), abs(l[2]-l[0])) * 180.0 / CV_PI;
-        if (a < 20)      horiz.push_back(l);
-        else if (a > 70) vert.push_back(l);
-    }
-
-    if (horiz.size() >= 2 && vert.size() >= 2) {
-        sort(horiz.begin(), horiz.end(), [](const Vec4i& a, const Vec4i& b){
-            return (a[1]+a[3]) < (b[1]+b[3]);
-        });
-        sort(vert.begin(), vert.end(), [](const Vec4i& a, const Vec4i& b){
-            return (a[0]+a[2]) < (b[0]+b[2]);
-        });
-
-        int bestTopY = -1, bestBotY = -1;
-        float maxScoreH = 0;
-        for (size_t i = 0; i < min((size_t)8, horiz.size()); i++) {
-            int y1 = (horiz[i][1] + horiz[i][3]) / 2;
-            float len1 = hypot(horiz[i][2]-horiz[i][0], horiz[i][3]-horiz[i][1]);
-            for (int j = (int)horiz.size() - 1; j >= max(0, (int)horiz.size() - 8); j--) {
-                int y2 = (horiz[j][1] + horiz[j][3]) / 2;
-                float len2 = hypot(horiz[j][2]-horiz[j][0], horiz[j][3]-horiz[j][1]);
-                int dy = y2 - y1;
-                if (dy > 0.20 * img.rows && dy < 0.95 * img.rows) {
-                    float score = (len1 + len2) * dy;
-                    if (score > maxScoreH) {
-                        maxScoreH = score;
-                        bestTopY = y1;
-                        bestBotY = y2;
-                    }
+        // Fusion des lignes proches
+        auto merge = [](vector<Vec4i>& v, bool h) {
+            vector<pair<int,Vec4i>> g;
+            for (auto& l : v) {
+                int pos = h ? (l[1]+l[3])/2 : (l[0]+l[2])/2;
+                bool done = false;
+                for (auto& x : g) if (abs(x.first-pos) < 50) {
+                    Vec4i& gl = x.second;
+                    if (h) { gl[0]=min(gl[0],min(l[0],l[2])); gl[2]=max(gl[2],max(l[0],l[2])); }
+                    else   { gl[1]=min(gl[1],min(l[1],l[3])); gl[3]=max(gl[3],max(l[1],l[3])); }
+                    x.first = pos; done = true; break;
                 }
+                if (!done) g.push_back({pos, l});
             }
-        }
+            v.clear(); for (auto& x : g) v.push_back(x.second);
+        };
+        merge(horiz, true); merge(vert, false);
+        if (horiz.size() < 2 || vert.size() < 2) continue;
 
-        int bestLeftX = -1, bestRightX = -1;
-        float maxScoreV = 0;
-        for (size_t i = 0; i < min((size_t)12, vert.size()); i++) {
-            int x1 = (vert[i][0] + vert[i][2]) / 2;
-            float len1 = hypot(vert[i][2]-vert[i][0], vert[i][3]-vert[i][1]);
-            for (int j = (int)vert.size() - 1; j >= max(0, (int)vert.size() - 12); j--) {
-                int x2 = (vert[j][0] + vert[j][2]) / 2;
-                float len2 = hypot(vert[j][2]-vert[j][0], vert[j][3]-vert[j][1]);
-                int dx = x2 - x1;
-                if (dx > 0.20 * img.cols && dx < 0.95 * img.cols) {
-                    float score = (len1 + len2) * dx;
-                    if (score > maxScoreV) {
-                        maxScoreV = score;
-                        bestLeftX = x1;
-                        bestRightX = x2;
-                    }
-                }
-            }
-        }
+        sort(horiz.begin(), horiz.end(), [](const Vec4i& a, const Vec4i& b){ return (a[1]+a[3]) < (b[1]+b[3]); });
+        sort(vert.begin(),  vert.end(),  [](const Vec4i& a, const Vec4i& b){ return (a[0]+a[2]) < (b[0]+b[2]); });
 
-        if (bestTopY > 0 && bestBotY > 0 && bestLeftX > 0 && bestRightX > 0) {
-            return {
-                Point2f((float)bestLeftX,  (float)bestTopY),
-                Point2f((float)bestRightX, (float)bestTopY),
-                Point2f((float)bestRightX, (float)bestBotY),
-                Point2f((float)bestLeftX,  (float)bestBotY)
-            };
-        }
+        auto L = [](const Vec4i& l) { return make_pair(Point2f(l[0],l[1]), Point2f(l[2],l[3])); };
+        auto [t1,t2] = L(horiz.front()); auto [b1,b2] = L(horiz.back());
+        auto [l1,l2] = L(vert.front());  auto [r1,r2] = L(vert.back());
+
+        Point2f tl,tr,br,bl;
+        if (!lineIntersect(t1,t2,l1,l2,tl)) continue;
+        if (!lineIntersect(t1,t2,r1,r2,tr)) continue;
+        if (!lineIntersect(b1,b2,r1,r2,br)) continue;
+        if (!lineIntersect(b1,b2,l1,l2,bl)) continue;
+
+        auto inside = [&](Point2f pt) {
+            return pt.x >= 0 && pt.x < img.cols && pt.y >= 0 && pt.y < img.rows;
+        };
+        if (!inside(tl)||!inside(tr)||!inside(br)||!inside(bl)) continue;
+
+        vector<Point> quad = {Point(tl),Point(tr),Point(br),Point(bl)};
+        if (contourArea(quad) < 0.05 * img.cols * img.rows) continue;
+
+        return sortCorners({tl, tr, br, bl});
     }
 
     return {};
@@ -260,7 +233,7 @@ vector<Point2f> detectCorners(const Mat& img, bool textured)
         }
     }
 
-    // Si la méthode demandée a échoué, tentative de secours
+    // Si la méthode demandée a échoué, tentative de secours avec l'autre méthode
     cout << "  → Tentative de secours avec l'autre méthode...\n";
     if (textured) {
         corners = detectSimpleBackground(img);
