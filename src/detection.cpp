@@ -34,7 +34,6 @@ bool isTexturedBackground(const Mat& img)
 
 // ─────────────────────────────────────────────────────────────
 //  Score d'un quadrilatère
-//  Rejette catégoriquement le cadre extérieur de l'image
 // ─────────────────────────────────────────────────────────────
 static double scoreQuad(const vector<Point>& quad, const Mat& img)
 {
@@ -44,20 +43,18 @@ static double scoreQuad(const vector<Point>& quad, const Mat& img)
     double imgArea = (double)img.rows * img.cols;
     double areaRatio = area / imgArea;
 
-    // Un document réel dans l'image ne prend ni < 5% ni > 80% de l'écran entier
+    // Un document réel ne prend pas < 5% ni > 80% de l'image
     if (areaRatio < 0.05 || areaRatio > 0.80) return 0;
 
-    // REJET DU CADRE EXTÉRIEUR : Si les coins touchent le bord de l'image (marge de 12px)
-    int borderMargin = 12;
+    // Rejeter le cadre extérieur de l'image
+    int bm = 12;
     int borderTouches = 0;
     for (auto& p : quad) {
         if (p.x < 0 || p.x >= img.cols || p.y < 0 || p.y >= img.rows) return 0;
-        if (p.x <= borderMargin || p.x >= img.cols - borderMargin ||
-            p.y <= borderMargin || p.y >= img.rows - borderMargin) {
+        if (p.x <= bm || p.x >= img.cols - bm || p.y <= bm || p.y >= img.rows - bm) {
             borderTouches++;
         }
     }
-    // Si 2 coins ou plus touchent le bord extrême de la photo, c'est le cadre de l'image, pas le doc
     if (borderTouches >= 2) return 0;
 
     double angleScore = 0;
@@ -75,7 +72,6 @@ static double scoreQuad(const vector<Point>& quad, const Mat& img)
     return areaRatio * 0.35 + angleScore * 0.45 + fillScore * 0.20;
 }
 
-// Chercher le meilleur quadrilatère dans une image binaire
 static vector<Point2f> bestQuadFromBinary(const Mat& binary, const Mat& img)
 {
     vector<vector<Point>> contours;
@@ -108,7 +104,7 @@ static vector<Point2f> bestQuadFromBinary(const Mat& binary, const Mat& img)
 }
 
 // ─────────────────────────────────────────────────────────────
-//  MÉTHODE A : Binarisation Otsu + Canny (Fond Simple)
+//  MÉTHODE 1 : Binarisation Otsu + Canny (Fond Simple)
 // ─────────────────────────────────────────────────────────────
 vector<Point2f> detectSimpleBackground(const Mat& img)
 {
@@ -116,36 +112,36 @@ vector<Point2f> detectSimpleBackground(const Mat& img)
     Mat blur, thresh, edges;
     GaussianBlur(gray, blur, Size(5, 5), 0);
 
-    // Otsu
+    // Essai A : Binarisation globale Otsu
     threshold(blur, thresh, 0, 255, THRESH_BINARY + THRESH_OTSU);
     Mat k7 = getStructuringElement(MORPH_RECT, Size(7, 7));
     morphologyEx(thresh, thresh, MORPH_CLOSE, k7);
     morphologyEx(thresh, thresh, MORPH_OPEN,  k7);
+    auto resOtsu = bestQuadFromBinary(thresh, img);
+    if (!resOtsu.empty()) return resOtsu;
 
-    // Canny adaptatif
+    // Essai B : Canny standard
     Mat sorted; blur.reshape(1,1).copyTo(sorted);
     cv::sort(sorted, sorted, SORT_EVERY_ROW);
     double med = sorted.at<uchar>(0, sorted.cols/2);
     Canny(blur, edges, max(0.0, 0.5*med), min(255.0, 1.5*med));
     morphologyEx(edges, edges, MORPH_CLOSE, k7);
+    auto resCanny = bestQuadFromBinary(edges, img);
+    if (!resCanny.empty()) return resCanny;
 
-    for (auto& src : {thresh, edges}) {
-        auto result = bestQuadFromBinary(src, img);
-        if (result.size() == 4) return result;
-    }
     return {};
 }
 
 // ─────────────────────────────────────────────────────────────
-//  MÉTHODE B : Analyse de structure & Hough Lines (Fond Texturé)
+//  MÉTHODE 2 : Analyse locale & Lignes de Hough (Fond Texturé)
 // ─────────────────────────────────────────────────────────────
 vector<Point2f> detectTexturedBackground(const Mat& img)
 {
     Mat gray = preprocess(img);
     Mat blur, thresh;
 
-    // 1. Filtre bilatéral + seuillage adaptatif local
-    bilateralFilter(gray, blur, 9, 75, 75);
+    // Essai A : Filtre bilatéral + seuillage adaptatif local (fenêtre variable)
+    bilateralFilter(gray, blur, 7, 50, 50);
     for (int bs : {25, 45, 65}) {
         adaptiveThreshold(blur, thresh, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, bs, 6);
         Mat k5 = getStructuringElement(MORPH_RECT, Size(5, 5));
@@ -154,55 +150,80 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
         if (result.size() == 4) return result;
     }
 
-    // 2. Hough Lines : chercher les arêtes rectilignes internes du document
+    // Essai B : Lignes de Hough pour reconstituer le quadrilatère sur fond bruité
     Mat edges;
     Canny(blur, edges, 15, 50);
-    Mat k3 = getStructuringElement(MORPH_RECT, Size(3, 3));
-    dilate(edges, edges, k3);
 
-    int minDim = min(img.cols, img.rows);
-    int margin = 20; // Ignorer les lignes du cadre de la caméra
+    vector<Vec4i> lines;
+    HoughLinesP(edges, lines, 1, CV_PI / 180, 35, 70, 25);
 
-    for (int minLen : {minDim / 6, minDim / 8, minDim / 10}) {
-        vector<Vec4i> lines;
-        HoughLinesP(edges, lines, 1, CV_PI / 180, 35, minLen, 25);
-        if (lines.size() < 4) continue;
+    int margin = 20;
+    vector<Vec4i> horiz, vert;
+    for (auto& l : lines) {
+        if ((l[0] < margin && l[2] < margin) || (l[0] > img.cols - margin && l[2] > img.cols - margin) ||
+            (l[1] < margin && l[3] < margin) || (l[1] > img.rows - margin && l[3] > img.rows - margin))
+            continue;
 
-        vector<Vec4i> horiz, vert;
-        for (auto& l : lines) {
-            // Exclure les bords extérieurs de l'image
-            if ((l[0] < margin && l[2] < margin) ||
-                (l[0] > img.cols - margin && l[2] > img.cols - margin) ||
-                (l[1] < margin && l[3] < margin) ||
-                (l[1] > img.rows - margin && l[3] > img.rows - margin))
-                continue;
+        double a = atan2(abs(l[3]-l[1]), abs(l[2]-l[0])) * 180.0 / CV_PI;
+        if (a < 20)      horiz.push_back(l);
+        else if (a > 70) vert.push_back(l);
+    }
 
-            double a = atan2(abs(l[3]-l[1]), abs(l[2]-l[0])) * 180.0 / CV_PI;
-            if (a < 20)      horiz.push_back(l);
-            else if (a > 70) vert.push_back(l);
+    if (horiz.size() >= 2 && vert.size() >= 2) {
+        sort(horiz.begin(), horiz.end(), [](const Vec4i& a, const Vec4i& b){
+            return (a[1]+a[3]) < (b[1]+b[3]);
+        });
+        sort(vert.begin(), vert.end(), [](const Vec4i& a, const Vec4i& b){
+            return (a[0]+a[2]) < (b[0]+b[2]);
+        });
+
+        int bestTopY = -1, bestBotY = -1;
+        float maxScoreH = 0;
+        for (size_t i = 0; i < min((size_t)8, horiz.size()); i++) {
+            int y1 = (horiz[i][1] + horiz[i][3]) / 2;
+            float len1 = hypot(horiz[i][2]-horiz[i][0], horiz[i][3]-horiz[i][1]);
+            for (int j = (int)horiz.size() - 1; j >= max(0, (int)horiz.size() - 8); j--) {
+                int y2 = (horiz[j][1] + horiz[j][3]) / 2;
+                float len2 = hypot(horiz[j][2]-horiz[j][0], horiz[j][3]-horiz[j][1]);
+                int dy = y2 - y1;
+                if (dy > 0.25 * img.rows && dy < 0.90 * img.rows) {
+                    float score = (len1 + len2) * dy;
+                    if (score > maxScoreH) {
+                        maxScoreH = score;
+                        bestTopY = y1;
+                        bestBotY = y2;
+                    }
+                }
+            }
         }
-        if (horiz.size() < 2 || vert.size() < 2) continue;
 
-        // Regrouper par position pour trouver les bords gauche, droite, haut, bas
-        vector<int> hPositions, vPositions;
-        for (auto& l : horiz) hPositions.push_back((l[1] + l[3]) / 2);
-        for (auto& l : vert)  vPositions.push_back((l[0] + l[2]) / 2);
+        int bestLeftX = -1, bestRightX = -1;
+        float maxScoreV = 0;
+        for (size_t i = 0; i < min((size_t)12, vert.size()); i++) {
+            int x1 = (vert[i][0] + vert[i][2]) / 2;
+            float len1 = hypot(vert[i][2]-vert[i][0], vert[i][3]-vert[i][1]);
+            for (int j = (int)vert.size() - 1; j >= max(0, (int)vert.size() - 12); j--) {
+                int x2 = (vert[j][0] + vert[j][2]) / 2;
+                float len2 = hypot(vert[j][2]-vert[j][0], vert[j][3]-vert[j][1]);
+                int dx = x2 - x1;
+                if (dx > 0.20 * img.cols && dx < 0.90 * img.cols) {
+                    float score = (len1 + len2) * dx;
+                    if (score > maxScoreV) {
+                        maxScoreV = score;
+                        bestLeftX = x1;
+                        bestRightX = x2;
+                    }
+                }
+            }
+        }
 
-        sort(hPositions.begin(), hPositions.end());
-        sort(vPositions.begin(), vPositions.end());
-
-        // Prendre les clusters représentatifs éloignés
-        int topY = hPositions[hPositions.size() * 0.15];
-        int botY = hPositions[hPositions.size() * 0.85];
-        int leftX = vPositions[vPositions.size() * 0.15];
-        int rightX = vPositions[vPositions.size() * 0.85];
-
-        if ((botY - topY) > 0.25 * img.rows && (rightX - leftX) > 0.25 * img.cols) {
-            Point2f tl((float)leftX, (float)topY);
-            Point2f tr((float)rightX, (float)topY);
-            Point2f br((float)rightX, (float)botY);
-            Point2f bl((float)leftX, (float)botY);
-            return sortCorners({tl, tr, br, bl});
+        if (bestTopY > 0 && bestBotY > 0 && bestLeftX > 0 && bestRightX > 0) {
+            return {
+                Point2f((float)bestLeftX,  (float)bestTopY),
+                Point2f((float)bestRightX, (float)bestTopY),
+                Point2f((float)bestRightX, (float)bestBotY),
+                Point2f((float)bestLeftX,  (float)bestBotY)
+            };
         }
     }
 
@@ -210,30 +231,48 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Wrapper avec fallback
+//  Wrapper principal
 // ─────────────────────────────────────────────────────────────
 vector<Point2f> detectCorners(const Mat& img, bool textured)
 {
-    cout << "Méthode : "
+    cout << "Méthode demandée : "
          << (textured ? "Structure & Hough (fond texturé)" : "Otsu & Contours (fond simple)") << "\n";
 
-    vector<Point2f> corners = textured
-        ? detectTexturedBackground(img)
-        : detectSimpleBackground(img);
-
-    if (corners.size() != 4) {
-        cout << "  → Essai de la méthode alternative...\n";
-        corners = textured
-            ? detectSimpleBackground(img)
-            : detectTexturedBackground(img);
+    vector<Point2f> corners;
+    if (textured) {
+        corners = detectTexturedBackground(img);
+        if (corners.empty()) {
+            cout << "  ❌ Méthode texture n'a pas trouvé de quadrilatère.\n";
+        } else {
+            cout << "  ✅ Méthode texture a détecté le document avec succès !\n";
+            return corners;
+        }
+    } else {
+        corners = detectSimpleBackground(img);
+        if (corners.empty()) {
+            cout << "  ❌ Méthode simple (Otsu) a échoué (contraste insuffisant ou fond trop complexe).\n";
+        } else {
+            cout << "  ✅ Méthode simple a détecté le document avec succès !\n";
+            return corners;
+        }
     }
 
-    if (corners.size() != 4) {
-        cout << "  → Détection automatique incertaine : placement initial au centre (marge 20%).\n";
-        float mx = img.cols * 0.20f, my = img.rows * 0.20f;
-        float W  = img.cols - 1,     H  = img.rows - 1;
-        corners  = { {mx,my}, {W-mx,my}, {W-mx,H-my}, {mx,H-my} };
+    // Si la méthode demandée a échoué, on essaie l'autre en secours :
+    cout << "  → Tentative de secours avec l'autre méthode...\n";
+    if (textured) {
+        corners = detectSimpleBackground(img);
+    } else {
+        corners = detectTexturedBackground(img);
     }
 
-    return corners;
+    if (!corners.empty()) {
+        cout << "  ✅ La méthode de secours a réussi à trouver les coins !\n";
+        return corners;
+    }
+
+    cout << "  ⚠️ Aucune méthode automatique n'a pu segmenter l'image.\n";
+    cout << "  → Placement de la boîte initiale par défaut (marge 20%) pour l'étape interactive.\n";
+    float mx = img.cols * 0.20f, my = img.rows * 0.20f;
+    float W  = img.cols - 1,     H  = img.rows - 1;
+    return { {mx,my}, {W-mx,my}, {W-mx,H-my}, {mx,H-my} };
 }
