@@ -12,6 +12,7 @@ transform_perspective
 # Images résultats (générées par le programme)
 *_rectified.jpg
 *_rectified.png
+!images/test_texture_2_*.jpg
 
 # Fichiers IDE / éditeurs
 .vscode/

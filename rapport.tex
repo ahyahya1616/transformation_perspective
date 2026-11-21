@@ -8,6 +8,8 @@
 \geometry{top=2cm, bottom=2cm, left=2.2cm, right=2.2cm}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
+\usepackage{subcaption}
+\graphicspath{{./}{images/}}
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{xcolor}
@@ -64,7 +66,7 @@
     
     {\large\bfseries Cycle d'Ingénieur en Logiciels et Systèmes Intelligents (LSI) \par}
     \vspace{0.3cm}
-    {\large\color{secondary}\textbf{Module : Vision Artificielle \& Traitement d'Images} \par}
+    {\large\color{secondary}\textbf{Module : Vision Artificielle } \par}
     
     \vspace{2.0cm}
     
@@ -82,16 +84,12 @@
     \begin{minipage}[t]{0.48\textwidth}
         \textbf{\large Réalisé par :}\\[0.2cm]
         {\Large\textbf{Yahya AHMANE}}\\[0.1cm]
-        Élève Ingénieur en LSI\\
-        \href{mailto:ahmaneyahya10@gmail.com}{\texttt{ahmaneyahya10@gmail.com}}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.48\textwidth}
         \begin{flushright}
             \textbf{\large Encadré par :}\\[0.2cm]
             {\Large\textbf{Pr. M'hamed AIT KBIR}}\\[0.1cm]
-            Professeur d'Enseignement Supérieur\\
-            FST de Tanger
         \end{flushright}
     \end{minipage}
     
@@ -221,11 +219,34 @@ Le programme a été testé sur l'ensemble des images fournies en pièce jointe 
 \subsection{Ajout d'une Image de Test pour le Fond Texturé (\texttt{test\_texture\_2.jpg})}
 Les images initialement fournies correspondant principalement à des contrastes francs ou des fonds relativement uniformes, \textbf{nous avons expressément ajouté une image supplémentaire de test (\texttt{test\_texture\_2.jpg})} dans le dossier \texttt{images/}. 
 
-Cette image présente un carnet oblique posé sur un tissu en soie beige avec des plis profonds, des reflets lumineux et un trombone métallique sur le bord supérieur. Ce test valide de façon rigoureuse notre algorithme pour \textbf{fond texturé} :
+Cette image présente un carnet oblique posé sur un tissu en soie beige avec des plis profonds, des reflets lumineux et un trombone métallique sur le bord supérieur (Figure~\ref{fig:texture_test}). Ce test valide de façon rigoureuse notre algorithme pour \textbf{fond texturé} :
 \begin{itemize}
     \item La méthode d'Otsu échoue sur cette image à cause des plis de la soie ;
     \item Notre méthode par \textbf{Filtrage bilatéral + Canny + Hough + Intersections} réussit parfaitement à isoler les 4 bords directeurs et à calculer les 4 coins exacts du carnet.
 \end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{test_texture_2.jpg}
+        \caption{Image source (soie plissée)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{test_texture_2_detected.jpg}
+        \caption{Coins détectés automatiquement}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{test_texture_2_rectified.jpg}
+        \caption{Document orthorectifié}
+    \end{subfigure}
+    \caption{Validation sur l'image ajoutée à fond texturé (\texttt{test\_texture\_2.jpg}).}
+    \label{fig:texture_test}
+\end{figure}
 
 \begin{table}[h!]
 \centering
