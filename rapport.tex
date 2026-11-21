@@ -90,7 +90,7 @@
     \hrule height 1.5pt
     \vspace{0.8cm}
     
-    {\large\bfseries Master / Cycle d'Ingénieur en Logiciels et Systèmes Intelligents (LSI) \par}
+    {\large\bfseries Cycle d'Ingénieur en Logiciels et Systèmes Intelligents (LSI) \par}
     \vspace{0.3cm}
     {\large\color{secondary}\textbf{Module : Vision Artificielle \& Traitement d'Images} \par}
     
@@ -154,13 +154,13 @@ Lors de la capture photographique d'un document (feuille imprimée, reçu de cai
     \item Le rapport de proportionnalité des longueurs n'est plus conservé.
 \end{itemize}
 
-L'objectif de ce travail est de concevoir et développer une application complète en **C++** s'appuyant sur la bibliothèque **OpenCV** permettant de réaliser une **orthorectification** (vue de dessus rigoureusement plane) de documents photographiés. Conformément au cahier des charges, le système intègre :
+L'objectif de ce travail est de concevoir et développer une application complète en \textbf{C++} s'appuyant sur la bibliothèque \textbf{OpenCV} permettant de réaliser une \textbf{orthorectification} (vue de dessus rigoureusement plane) de documents photographiés. Conformément au cahier des charges, le système intègre :
 \begin{enumerate}
-    \item Une **détection automatique personnalisée** des 4 coins délimitant le quadrilatère du document.
-    \item Un **affichage graphique** du résultat de cette détection.
-    \item Une phase d'**ajustement interactif** par manipulation souris pour corriger les imprécisions éventuelles.
-    \item L'application mathématique de la **transformation projective (homographie)** pour restituer le document redressé.
-    \item La prise en charge robuste de deux typologies d'arrière-plans : **fonds simples** (uniformes et contrastés) et **fonds texturés** (complexes, bruités ou à faible contraste).
+    \item Une \textbf{détection automatique personnalisée} des 4 coins délimitant le quadrilatère du document.
+    \item Un \textbf{affichage graphique} du résultat de cette détection.
+    \item Une phase d'\textbf{ajustement interactif} par manipulation souris pour corriger les imprécisions éventuelles.
+    \item L'application mathématique de la \textbf{transformation projective (homographie)} pour restituer le document redressé.
+    \item La prise en charge robuste de deux typologies d'arrière-plans : \textbf{fonds simples} (uniformes et contrastés) et \textbf{fonds texturés} (complexes, bruités ou à faible contraste).
 \end{enumerate}
 
 Le code source intégral est disponible sur le dépôt public GitHub :\\
@@ -202,10 +202,10 @@ Afin de respecter les principes d'ingénierie logicielle et de garantir la lisib
 \subsection{Justification Théorique du Choix Algorithmique}
 Un fond simple est caractérisé par une surface homogène et contrastée par rapport au document (ex. un reçu blanc sur un bureau sombre). Dans cette configuration :
 \begin{itemize}
-    \item L'histogramme global des intensités de gris présente une distribution **bimodale** nette (deux pics distincts : le fond et la page).
+    \item L'histogramme global des intensités de gris présente une distribution \textbf{bimodale} nette (deux pics distincts : le fond et la page).
     \item Le contour du document correspond à une discontinuité fermée et continue d'amplitude élevée.
 \end{itemize}
-Dès lors, l'approche optimale repose sur la **segmentation par seuillage global d'Otsu** combinée à l'**approximation polygonale de Ramer-Douglas-Peucker**. Cette méthode est déterministe, instantanée en temps de calcul et insensible aux détails textuels internes après fermeture morphologique.
+Dès lors, l'approche optimale repose sur la \textbf{segmentation par seuillage global d'Otsu} combinée à l'\textbf{approximation polygonale de Ramer-Douglas-Peucker}. Cette méthode est déterministe, instantanée en temps de calcul et insensible aux détails textuels internes après fermeture morphologique.
 
 \subsection{Déroulement Détaillé de l'Algorithme}
 
@@ -243,7 +243,7 @@ Dès lors, l'approche optimale repose sur la **segmentation par seuillage global
 \subsection{Justification Théorique du Choix Algorithmique}
 Sur un fond texturé (veines de bois prononcées, tissu plissé, ombres portées, nappe à motifs), la méthode par seuillage d'Otsu échoue systématiquement car les pixels de texture de l'arrière-plan possèdent des niveaux de gris similaires à ceux du document, créant des ruptures et des ponts parasites dans le masque binaire.
 
-La stratégie mise en œuvre s'affranchit de l'intensité surfacique pour exploiter un **invariant géométrique structurel** : **la rectilinéarité des 4 bords de la page**. L'association du **filtre bilatéral**, du filtre différentiel de **Canny** et de la **Transformée de Hough Probabiliste (PPHT)** permet d'extraire les arêtes rectilignes même en présence d'un rapport signal/bruit défavorable.
+La stratégie mise en œuvre s'affranchit de l'intensité surfacique pour exploiter un \textbf{invariant géométrique structurel} : \textbf{la rectilinéarité des 4 bords de la page}. L'association du \textbf{filtre bilatéral}, du filtre différentiel de \textbf{Canny} et de la \textbf{Transformée de Hough Probabiliste (PPHT)} permet d'extraire les arêtes rectilignes même en présence d'un rapport signal/bruit défavorable.
 
 \subsection{Déroulement Détaillé de l'Algorithme}
 
@@ -342,7 +342,7 @@ Les expérimentations ont été menées sur les photographies fournies ainsi que
 
 Ce devoir a permis de concevoir une chaîne de traitement d'images complète et robuste répondant rigoureusement aux exigences académiques :
 \begin{itemize}
-    \item La combinaison duale **Otsu/Contours** (fond simple) et **Bilatéral/Canny/Hough** (fond texturé) apporte une solution ciblée et justifiée pour chaque classe de problème.
+    \item La combinaison duale \textbf{Otsu/Contours} (fond simple) et \textbf{Bilatéral/Canny/Hough} (fond texturé) apporte une solution ciblée et justifiée pour chaque classe de problème.
     \item L'adjonction de l'interface d'ajustement interactif offre une ergonomie professionnelle et résout les cas pathologiques d'occlusion partielle.
     \item L'implémentation modulaire en C++17 garantit une exécution temps-réel avec une complexité algorithmique maîtrisée.
 \end{itemize}
@@ -354,3 +354,4 @@ Ce devoir a permis de concevoir une chaîne de traitement d'images complète et 
 \end{center}
 
 \end{document}
+
