@@ -34,7 +34,19 @@ bool isTexturedBackground(const Mat& img)
 
 // ─────────────────────────────────────────────────────────────
 //  Score d'un quadrilatère
+//  Rejette uniquement le cadre exact de la caméra
 // ─────────────────────────────────────────────────────────────
+static bool isCameraFrame(const vector<Point>& quad, int w, int h)
+{
+    int touches = 0;
+    for (auto& p : quad) {
+        if ((p.x <= 5 || p.x >= w - 5) && (p.y <= 5 || p.y >= h - 5)) {
+            touches++;
+        }
+    }
+    return touches >= 3; // 3 ou 4 coins posés sur les coins exacts de l'image
+}
+
 static double scoreQuad(const vector<Point>& quad, const Mat& img)
 {
     if (quad.size() != 4) return 0;
@@ -43,19 +55,11 @@ static double scoreQuad(const vector<Point>& quad, const Mat& img)
     double imgArea = (double)img.rows * img.cols;
     double areaRatio = area / imgArea;
 
-    // Un document réel ne prend pas < 5% ni > 80% de l'image
-    if (areaRatio < 0.05 || areaRatio > 0.80) return 0;
+    // Un document réel ne prend pas < 5% ni > 95% de l'image
+    if (areaRatio < 0.05 || areaRatio > 0.95) return 0;
 
-    // Rejeter le cadre extérieur de l'image
-    int bm = 12;
-    int borderTouches = 0;
-    for (auto& p : quad) {
-        if (p.x < 0 || p.x >= img.cols || p.y < 0 || p.y >= img.rows) return 0;
-        if (p.x <= bm || p.x >= img.cols - bm || p.y <= bm || p.y >= img.rows - bm) {
-            borderTouches++;
-        }
-    }
-    if (borderTouches >= 2) return 0;
+    // Rejeter si c'est le cadre entier de la caméra
+    if (isCameraFrame(quad, img.cols, img.rows)) return 0;
 
     double angleScore = 0;
     for (int i = 0; i < 4; i++) {
@@ -69,7 +73,7 @@ static double scoreQuad(const vector<Point>& quad, const Mat& img)
     Rect br = boundingRect(quad);
     double fillScore = area / (br.area() + 1e-6);
 
-    return areaRatio * 0.35 + angleScore * 0.45 + fillScore * 0.20;
+    return areaRatio * 0.40 + angleScore * 0.40 + fillScore * 0.20;
 }
 
 static vector<Point2f> bestQuadFromBinary(const Mat& binary, const Mat& img)
@@ -86,7 +90,7 @@ static vector<Point2f> bestQuadFromBinary(const Mat& binary, const Mat& img)
     vector<Point2f> bestCorners;
 
     for (auto& c : contours) {
-        for (double eps : {0.01, 0.02, 0.03, 0.05, 0.08}) {
+        for (double eps : {0.01, 0.02, 0.03, 0.04, 0.05}) {
             vector<Point> approx;
             approxPolyDP(c, approx, eps * arcLength(c, true), true);
             if (approx.size() == 4 && isContourConvex(approx)) {
@@ -116,7 +120,6 @@ vector<Point2f> detectSimpleBackground(const Mat& img)
     threshold(blur, thresh, 0, 255, THRESH_BINARY + THRESH_OTSU);
     Mat k7 = getStructuringElement(MORPH_RECT, Size(7, 7));
     morphologyEx(thresh, thresh, MORPH_CLOSE, k7);
-    morphologyEx(thresh, thresh, MORPH_OPEN,  k7);
     auto resOtsu = bestQuadFromBinary(thresh, img);
     if (!resOtsu.empty()) return resOtsu;
 
@@ -140,7 +143,7 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
     Mat gray = preprocess(img);
     Mat blur, thresh;
 
-    // Essai A : Filtre bilatéral + seuillage adaptatif local (fenêtre variable)
+    // Essai A : Filtre bilatéral + seuillage adaptatif local
     bilateralFilter(gray, blur, 7, 50, 50);
     for (int bs : {25, 45, 65}) {
         adaptiveThreshold(blur, thresh, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, bs, 6);
@@ -150,7 +153,7 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
         if (result.size() == 4) return result;
     }
 
-    // Essai B : Lignes de Hough pour reconstituer le quadrilatère sur fond bruité
+    // Essai B : Lignes de Hough pour reconstituer le document
     Mat edges;
     Canny(blur, edges, 15, 50);
 
@@ -186,7 +189,7 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
                 int y2 = (horiz[j][1] + horiz[j][3]) / 2;
                 float len2 = hypot(horiz[j][2]-horiz[j][0], horiz[j][3]-horiz[j][1]);
                 int dy = y2 - y1;
-                if (dy > 0.25 * img.rows && dy < 0.90 * img.rows) {
+                if (dy > 0.20 * img.rows && dy < 0.95 * img.rows) {
                     float score = (len1 + len2) * dy;
                     if (score > maxScoreH) {
                         maxScoreH = score;
@@ -206,7 +209,7 @@ vector<Point2f> detectTexturedBackground(const Mat& img)
                 int x2 = (vert[j][0] + vert[j][2]) / 2;
                 float len2 = hypot(vert[j][2]-vert[j][0], vert[j][3]-vert[j][1]);
                 int dx = x2 - x1;
-                if (dx > 0.20 * img.cols && dx < 0.90 * img.cols) {
+                if (dx > 0.20 * img.cols && dx < 0.95 * img.cols) {
                     float score = (len1 + len2) * dx;
                     if (score > maxScoreV) {
                         maxScoreV = score;
@@ -257,7 +260,7 @@ vector<Point2f> detectCorners(const Mat& img, bool textured)
         }
     }
 
-    // Si la méthode demandée a échoué, on essaie l'autre en secours :
+    // Si la méthode demandée a échoué, tentative de secours
     cout << "  → Tentative de secours avec l'autre méthode...\n";
     if (textured) {
         corners = detectSimpleBackground(img);
